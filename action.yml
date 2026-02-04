@@ -48,14 +48,14 @@ runs:
        echo "HEAD_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
        echo "BASE_SHA=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
 
-    - name: Download mirror SHAs from last run
+    - name: Download equivalent SHAs from last run
       shell: bash
       run: |
-        latest_artifact.sh "${{ inputs.github-token }}" "${{ github.repository }}" "${{ github.event.pull_request.number }}" "${{ github.head_ref }}" "${{ github.workflow }}" "dismiss-stale-approvals-mirror-shas" || true
-        if [ -f mirror_shas.txt ]; then
-          echo "MIRROR_SHAS=$(cat mirror_shas.txt)" >> $GITHUB_ENV
+        latest_artifact.sh "${{ inputs.github-token }}" "${{ github.repository }}" "${{ github.event.pull_request.number }}" "${{ github.head_ref }}" "${{ github.workflow }}" "dismiss-stale-approvals-equivalent-shas" || true
+        if [ -f equivalent_shas.txt ]; then
+          echo "EQUIVALENT_SHAS=$(tr '\n' ',' < equivalent_shas.txt | sed 's/,$//')" >> $GITHUB_ENV
         else
-          echo "MIRROR_SHAS=${{ env.HEAD_SHA }}" >> $GITHUB_ENV
+          echo "EQUIVALENT_SHAS=${{ env.HEAD_SHA }}" >> $GITHUB_ENV
         fi
       env:
         GITHUB_ACTION_PATH: ${{ github.action_path }}
@@ -106,25 +106,25 @@ runs:
           echo "$RANGE_DIFF"
         fi
 
-    - name: Check for mirror shas
+    - name: Check for equivalent shas
       shell: bash
       run: |
-        if [ "${{ env.MATCH }}" == "1" ] && [ -f mirror_shas.txt ] && [ "$(tail -n 1 mirror_shas.txt)" == "${{ env.PREV_HEAD_SHA }}" ]; then
-          # Append current HEAD_SHA to existing mirror SHAs, making a chain of SHAs that have identical contents
-          echo "${{ env.HEAD_SHA }}" >> mirror_shas.txt
-          echo "MIRROR_SHAS=$(cat mirror_shas.txt)" >> $GITHUB_ENV
+        if [ "${{ env.MATCH }}" == "1" ] && [ -f equivalent_shas.txt ] && [ "$(tail -n 1 equivalent_shas.txt)" == "${{ env.PREV_HEAD_SHA }}" ]; then
+          # Append current HEAD_SHA to existing equivalent SHAs, making a chain of SHAs that have identical contents
+          echo "${{ env.HEAD_SHA }}" >> equivalent_shas.txt
+          echo "EQUIVALENT_SHAS=$(tr '\n' ',' < equivalent_shas.txt | sed 's/,$//')" >> $GITHUB_ENV
         else
-          # Reset mirror SHAs to only current HEAD_SHA
-          echo "${{ env.HEAD_SHA }}" > mirror_shas.txt
-          echo "MIRROR_SHAS=${{ env.HEAD_SHA }}" >> $GITHUB_ENV
+          # Reset equivalent SHAs to only current HEAD_SHA
+          echo "${{ env.HEAD_SHA }}" > equivalent_shas.txt
+          echo "EQUIVALENT_SHAS=${{ env.HEAD_SHA }}" >> $GITHUB_ENV
         fi
 
-    - name: Upload mirror SHAs
+    - name: Upload equivalent SHAs
       uses: actions/upload-artifact@v4
       continue-on-error: true
       with:
-        name: dismiss-stale-approvals-mirror-shas
-        path: mirror_shas.txt
+        name: dismiss-stale-approvals-equivalent-shas
+        path: equivalent_shas.txt
 
     - name: Construct dismissal reason
       shell: bash
@@ -138,12 +138,12 @@ runs:
         fi
         echo "REASON=Your organization requires reapproval when changes are made, so Graphite has dismissed approvals. ${DETAILS}${{ env.WORKFLOW_RUN_URL }}" >> $GITHUB_ENV
 
-    - name: Dismiss approvals that are not for the mirror SHAs list if diff has changed or if any prior step failed
+    - name: Dismiss approvals that are not for the equivalent SHAs list if diff has changed or if any prior step failed
       if: env.MATCH == '0' || env.NO_PREV_SHAS == '1'
       uses: withgraphite/dismiss-all-approvals-js@main
       with:
         github-token: ${{ inputs.github-token }}
         dry-run: ${{ inputs.dry-run }}
         reason: ${{ env.REASON }}
-        excluding-shas: ${{ env.MIRROR_SHAS }}
+        excluding-shas: ${{ env.EQUIVALENT_SHAS }}
 
