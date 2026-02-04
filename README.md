@@ -1,7 +1,8 @@
 # dismiss-stale-approvals
 
 A GitHub action to automatically dismiss stale approvals on pull requests.
-Unlike the built in GitHub protection, this action will compare the `git range-diff` of the new version against the previous version, and only dismiss approvals if the diff has changed.
+
+Unlike the built in GitHub protection, this action will compare the `git range-diff` of the new version against the previous version, and only dismiss approvals if the diff has changed. The dismissed approvals will only consist of approvals for PRs that are not the HEAD commit or an equivilent commit as verified with `git range-diff`.
 
 ## Usage
 
